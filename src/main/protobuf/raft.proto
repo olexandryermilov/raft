@@ -1,0 +1,54 @@
+syntax = "proto3";
+package com.yermilov.raft;
+
+message RaftRequest {
+    int32 id1 = 1;
+}
+
+message RaftResponse {
+    int32 id2 = 1;
+}
+
+message RequestVoteRequest {
+    int32 server_term = 1;
+    int32 server_id = 2;
+    int32 last_log_index = 3;
+    int32 last_log_term = 4;
+}
+
+message RequestVoteResponse {
+    int32 term = 1;
+    bool voteGranted = 2;
+}
+
+message LogEntry {
+    string value = 1;
+    int32 index = 2;
+    int32 term = 3;
+}
+
+message AppendEntriesRequest {
+    int32 term = 1;
+    int32 leaderId = 2;
+    int32 prev_log_index = 3;
+    int32 prev_log_term = 4;
+    repeated LogEntry entries = 5;
+    int32 leaderCommit = 6;
+}
+
+message AppendEntriesResponse {
+    int32 currentTerm = 1;
+    bool success = 2;
+}
+
+service Raft {
+    rpc RaftEcho(RaftRequest) returns (RaftResponse) {
+    }
+
+    rpc RequestVoteRpc(RequestVoteRequest) returns (RequestVoteResponse) {
+    }
+
+    rpc AppendEntriesRpc(AppendEntriesRequest) returns (AppendEntriesResponse) {
+
+    }
+}
