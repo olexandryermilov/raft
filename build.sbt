@@ -21,5 +21,7 @@ libraryDependencies ++= Seq(
 )
 
 libraryDependencies += "io.grpc" % "protoc-gen-grpc-java" % "1.23.0" asProtocPlugin()
+libraryDependencies += "joda-time" % "joda-time" % "2.10.10"
+
 
 Compile / PB.targets := Seq(scalapb.gen() -> (Compile / sourceManaged).value)

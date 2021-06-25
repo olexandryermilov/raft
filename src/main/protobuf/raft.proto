@@ -41,6 +41,14 @@ message AppendEntriesResponse {
     bool success = 2;
 }
 
+message LeaderHeartbeatRequest {
+
+}
+
+message LeaderHeartbeatResponse {
+
+}
+
 service Raft {
     rpc RaftEcho(RaftRequest) returns (RaftResponse) {
     }
@@ -49,6 +57,10 @@ service Raft {
     }
 
     rpc AppendEntriesRpc(AppendEntriesRequest) returns (AppendEntriesResponse) {
+
+    }
+
+    rpc LeaderHeartbeat(LeaderHeartbeatRequest) returns (LeaderHeartbeatResponse) {
 
     }
 }

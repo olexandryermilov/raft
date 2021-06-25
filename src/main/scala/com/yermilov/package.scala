@@ -18,4 +18,14 @@ package object yermilov {
       case Success(value) => value
     }
   }
+
+  type HeartbeatResult = Either[(Int, Int), List[(Int, Int)]]
+  type Term = Int
+  type NodeId = Int
+  type Votes = Int
+  type VoteGranted = Boolean
+  //type Term = Int
+
+  type ElectionResult = Either[(Term, NodeId), Votes]
+  type ElectionResponse = Either[(Term, NodeId), VoteGranted]
 }

@@ -18,14 +18,16 @@ object RaftServer {
   private val logger = Logger.getLogger(classOf[RaftServer].getName)
   implicit val executionContext = ExecutionContext.global
   val actorSystem = ActorSystem("RaftSystem")
+  private var port: Int = 0 //findFreePort()
 
   def main(args: Array[String]): Unit = {
+    println(args.mkString(" "))
+    port = 50000 + args.head.toInt
     val server = new RaftServer(ExecutionContext.global)
-    server.start(id = args.head.toInt, otherPorts = args.tail.map(_.toInt))
+    server.start(id = args.head.toInt, otherPorts = Seq(50001, 50002, 50003, 50004, 50005).filter(_ != port))
     server.blockUntilShutdown()
   }
 
-  private val port = findFreePort()
 }
 
 class RaftServer(executionContext: ExecutionContext) {
@@ -34,8 +36,9 @@ class RaftServer(executionContext: ExecutionContext) {
   private[this] var actor: ActorRef = null
 
   private def start(id: Int, otherPorts: Seq[Int]): Unit = {
-    val state = NodeState(id, otherNodes = otherPorts, Follower)
+    val state = NodeState(id, otherNodes = otherPorts.map(port => Node(RaftClient.createStub(port), port - 50000)), Follower)
     actor = RaftServer.actorSystem.actorOf(Props(classOf[RaftActor], state))
+    println(actor.path)
     server = ServerBuilder.forPort(RaftServer.port).addService(RaftGrpc.bindService(new RaftService(actor), executionContext)).build.start
     RaftServer.logger.info("Server started, listening on " + RaftServer.port)
     sys.addShutdownHook {
@@ -58,18 +61,26 @@ class RaftServer(executionContext: ExecutionContext) {
   }
 
   private class RaftService(actorRef: ActorRef) extends RaftGrpc.Raft {
-    implicit val timeout = Timeout(1 seconds)
+    import scala.language.postfixOps
+    implicit val timeout = Timeout(1.seconds)
+
+    private val logger = Logger.getLogger(classOf[RaftService].getName)
 
     override def raftEcho(req: RaftRequest): Future[RaftResponse] = {
       val reply = RaftResponse(req.id1)
       Future.successful(reply)
     }
 
-    override def requestVoteRpc(request: RequestVoteRequest): Future[RequestVoteResponse] =
+    override def requestVoteRpc(request: RequestVoteRequest): Future[RequestVoteResponse] = {
+      logger.info(request.toString)
       (actor ? RaftActorMessages.RequestVote(request)).asInstanceOf[Future[RequestVoteResponse]]
+    }
 
     override def appendEntriesRpc(request: AppendEntriesRequest): Future[AppendEntriesResponse] =
       (actor ? RaftActorMessages.AppendLog(request)).asInstanceOf[Future[AppendEntriesResponse]]
+
+    override def leaderHeartbeat(request: LeaderHeartbeatRequest): Future[LeaderHeartbeatResponse] =
+      (actor ? RaftActorMessages.LeaderHeartbeat()).asInstanceOf[Future[LeaderHeartbeatResponse]]
   }
 
 }
