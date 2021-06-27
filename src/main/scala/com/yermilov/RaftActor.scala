@@ -1,7 +1,7 @@
 package com.yermilov
 
 import akka.actor.{Actor, Timers}
-import com.yermilov.raft.raft.{AppendEntriesRequest, AppendEntriesResponse, LeaderHeartbeatRequest, LeaderHeartbeatResponse, LogEntry, RequestVoteRequest, RequestVoteResponse}
+import com.yermilov.raft.raft.{AppendEntriesRequest, AppendEntriesResponse, AppendLogToLeaderResponse, GetLeaderResponse, GetNodeStateResponse, LeaderHeartbeatRequest, LeaderHeartbeatResponse, LogEntry, RequestVoteRequest, RequestVoteResponse}
 import org.joda.time.DateTime
 import wvlet.log.Logger
 
@@ -29,6 +29,12 @@ object RaftActorMessages {
   case class OwnHeartbeatTick()
 
   case class LeaderHeartbeatTick()
+
+  case class GetLeader()
+
+  case class AddLogToLeader(logValue: String)
+
+  case class GetNodeState()
 
 }
 
@@ -101,34 +107,57 @@ class RaftActor(val state: NodeState) extends Actor with Timers with RaftFollowe
     resp
   }
 
+  def leaderAppend(valueToAppend: String): AppendLogToLeaderResponse = {
+    if(state.mode == Leader) {
+      logger.info(s"$valueToAppend came to server ${state.id}")
+      appendEntries(AppendEntriesRequest(state.currentTerm, state.id, state.log.length - 1, state.log.lastOption.map(_.term).getOrElse(state.currentTerm), entries = Seq(LogEntry(valueToAppend, state.log.length, state.currentTerm)), state.commitIndex))
+    }
+    AppendLogToLeaderResponse()
+  }
+
   def appendEntries(appendRequest: AppendEntriesRequest): AppendEntriesResponse = {
+    val oldTerm = state.currentTerm
+    logger.info(s"Append entries request, current term is $oldTerm")
     if (appendRequest.term > state.currentTerm) {
       becomeFollower(Some(appendRequest.term), appendRequest.leaderId)
     }
+    state.lastMessageFromLeader = Some(DateTime.now())
 
     val prevLog = state.log.find(e => e.term == appendRequest.prevLogTerm && e.index == appendRequest.prevLogIndex)
 
-    if (appendRequest.term < state.currentTerm || (appendRequest.prevLogIndex > 0 && prevLog.isEmpty)) {
-      AppendEntriesResponse(state.currentTerm, success = false)
+    if (appendRequest.term < oldTerm || (appendRequest.prevLogIndex > 0 && prevLog.isEmpty)) {
+      AppendEntriesResponse(oldTerm, success = false)
     } else {
+      logger.info(s"Appends entries come through all ifs")
       state.log = mergeEntries(appendRequest.prevLogTerm, appendRequest.prevLogIndex, appendRequest.entries)
-
-      if (appendRequest.leaderCommit > state.commitIndex) {
+      logger.info(s"New log is ${state.log}")
+      if (appendRequest.leaderCommit >= state.commitIndex) {
         state.commitIndex = Array(appendRequest.leaderCommit, state.lastLogIndex).min
+        logger.info(s"Updated commit index to ${state.commitIndex}")
       }
       AppendEntriesResponse(state.currentTerm, success = true)
     }
   }
 
-  private def leaderHeartbeat(): LeaderHeartbeatResponse = if (state.mode != Leader) {
+  private def leaderHeartbeat(): LeaderHeartbeatResponse = {
+    if (state.mode == Leader) {
+      heartbeat()
+    } else {
+      logger.info("Got heartbeat from leader")
+    }
+    LeaderHeartbeatResponse()
+  }
+
+  /*if (state.mode != Leader) {
+    logger.info("Leader heartbeat received")
     this.state.lastMessageFromLeader = Some(DateTime.now)
     LeaderHeartbeatResponse()
   } else {
-    state.otherNodes.map(conn => {
+    /*state.otherNodes.map(conn => {
       conn.connection.leaderHeartbeat(LeaderHeartbeatRequest())
     })
-    LeaderHeartbeatResponse()
-  }
+    LeaderHeartbeatResponse()*/
+  }*/
 
 
   override def receive: Receive = {
@@ -137,7 +166,14 @@ class RaftActor(val state: NodeState) extends Actor with Timers with RaftFollowe
     case ElectionCompleted(result) => electionCompleted(result)
     case Election => startElection()
     case OwnHeartbeat => followerHeartbeat()
-    case LeaderHeartbeat => sender() ! leaderHeartbeat()
+    case LeaderHeartbeat => leaderHeartbeat()
+    case LeaderHeartbeat() => leaderHeartbeat()
+    case HeartbeatSuccess(result) => heartbeatCompleted(result)
+    case GetLeader() => sender() ! GetLeaderResponse(state.mode == Leader)
+    case GetLeader => sender() ! GetLeaderResponse(state.mode == Leader)
+    case GetNodeState => sender() ! GetNodeStateResponse(state.log.tail)
+    case GetNodeState() => sender() ! GetNodeStateResponse(state.log.tail)
+    case AddLogToLeader(logValue) => sender() ! leaderAppend(logValue)
     case a@_ => logger.info(s"Didn't recognize message $a")
   }
 

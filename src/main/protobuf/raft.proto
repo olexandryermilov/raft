@@ -49,6 +49,31 @@ message LeaderHeartbeatResponse {
 
 }
 
+message GetLeaderRequest {
+
+}
+
+message GetLeaderResponse {
+    bool is_leader = 1;
+}
+
+message AppendLogToLeaderRequest {
+    string value = 1;
+}
+
+message AppendLogToLeaderResponse {
+
+}
+
+message GetNodeStateRequest {
+
+}
+
+message GetNodeStateResponse {
+    repeated LogEntry entries = 1;
+}
+
+
 service Raft {
     rpc RaftEcho(RaftRequest) returns (RaftResponse) {
     }
@@ -61,6 +86,16 @@ service Raft {
     }
 
     rpc LeaderHeartbeat(LeaderHeartbeatRequest) returns (LeaderHeartbeatResponse) {
+    }
+
+    rpc GetLeader(GetLeaderRequest) returns (GetLeaderResponse) {
+
+    }
+
+    rpc AppendLogToLeader(AppendLogToLeaderRequest) returns (AppendLogToLeaderResponse) {
+
+    }
+    rpc GetNodeState(GetNodeStateRequest) returns (GetNodeStateResponse) {
 
     }
 }

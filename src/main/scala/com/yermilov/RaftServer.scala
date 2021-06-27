@@ -5,6 +5,7 @@ import java.util.logging.Logger
 import akka.actor.{ActorRef, ActorSystem, Props}
 import akka.pattern.ask
 import akka.util.Timeout
+import com.yermilov.RaftActorMessages.AddLogToLeader
 import com.yermilov.raft.raft._
 import io.grpc.{Server, ServerBuilder}
 
@@ -62,7 +63,8 @@ class RaftServer(executionContext: ExecutionContext) {
 
   private class RaftService(actorRef: ActorRef) extends RaftGrpc.Raft {
     import scala.language.postfixOps
-    implicit val timeout = Timeout(1.seconds)
+    implicit val timeout = Timeout(2.seconds)
+    implicit val executionContext = ExecutionContext.global
 
     private val logger = Logger.getLogger(classOf[RaftService].getName)
 
@@ -80,7 +82,19 @@ class RaftServer(executionContext: ExecutionContext) {
       (actor ? RaftActorMessages.AppendLog(request)).asInstanceOf[Future[AppendEntriesResponse]]
 
     override def leaderHeartbeat(request: LeaderHeartbeatRequest): Future[LeaderHeartbeatResponse] =
-      (actor ? RaftActorMessages.LeaderHeartbeat()).asInstanceOf[Future[LeaderHeartbeatResponse]]
+      (actor ? RaftActorMessages.LeaderHeartbeat()).map(_ => LeaderHeartbeatResponse())
+
+    override def getLeader(request: GetLeaderRequest): Future[GetLeaderResponse] = {
+      (actor ? RaftActorMessages.GetLeader()).asInstanceOf[Future[GetLeaderResponse]]
+    }
+
+    override def appendLogToLeader(request: AppendLogToLeaderRequest): Future[AppendLogToLeaderResponse] = {
+      (actor ? RaftActorMessages.AddLogToLeader(request.value)).asInstanceOf[Future[AppendLogToLeaderResponse]]
+    }
+
+    override def getNodeState(request: GetNodeStateRequest): Future[GetNodeStateResponse] = {
+      (actor ? RaftActorMessages.GetNodeState()).asInstanceOf[Future[GetNodeStateResponse]]
+    }
   }
 
 }

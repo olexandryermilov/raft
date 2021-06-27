@@ -61,34 +61,43 @@ trait RaftLeaderActor {
     case Left(termWithServer) => becomeFollower(Some(termWithServer._1), termWithServer._2)
     case Right(nextIndexes) =>
       logger.info(s"Node ${state.id} successfully sent heartbeat with term=${state.currentTerm}")
+      logger.info(s"Nextindex: ${state.nextIndex}, matchindex ${state.matchIndex} before update")
       state.nextIndex = state.nextIndex ++ nextIndexes
       state.matchIndex = state.matchIndex ++ nextIndexes.filter {
         case (serverId: Int, index: Int) => index > state.matchIndex.getOrElse(serverId, 0) // increase only
       }
-
-      val majorityIndex = 1//majorityMin(state.matchIndex.values.toArray)
-      val candidateTerm = state.log.find(_.index == majorityIndex).map(_.term)
-      if (candidateTerm.contains(state.currentTerm) && majorityIndex > state.commitIndex) {
-        logger.info(s"Majority agreed with new commit $majorityIndex")
-        state.commitIndex = majorityIndex
-      }
+      logger.info(s"Nextindex: ${state.nextIndex}, matchindex ${state.matchIndex} after update")
+      val commitIndex = (state.commitIndex until state.log.length).findLast(cI => {
+        if (state.log(cI).term == state.currentTerm) {
+          val matchCount = 1 + state.matchIndex.count(mI => mI._2 >= cI)
+          matchCount * 2 > state.otherNodes.length
+        } else false
+      }).getOrElse(state.commitIndex)
+      logger.info(s"New commit index is $commitIndex")
+      state.commitIndex = commitIndex
+    /*val majorityIndex = majorityMin(state.matchIndex.values.toArray)
+    val candidateTerm = state.log.find(_.index == majorityIndex).map(_.term)
+    if (candidateTerm.contains(state.currentTerm) && majorityIndex > state.commitIndex) {
+      logger.info(s"Majority agreed with new commit $majorityIndex")
+      state.commitIndex = majorityIndex
+    }*/
   }
 
   def becomeLeader(): Unit = {
     logger.info(s"Node ${state.id} became a leader")
     timers.startTimerAtFixedRate(LeaderHeartbeatTick, LeaderHeartbeat, heartBeatTimer)
     state.mode = Leader
-    state.leader = None
+    state.leader = Some(state.id)
     state.lastMessageFromLeader = None
+    state.otherNodes.foreach(node => state.nextIndex.put(node.id, state.lastLogIndex + 1))
+    state.otherNodes.foreach(node => state.matchIndex.put(node.id, 0))
 
     heartbeat()
-    context.become(receiveLeader)
+    //context.become(receiveLeader)
   }
 
   def receiveLeader: Receive = {
     case OwnHeartbeat => heartbeat()
-    case HeartbeatSuccess(result) => heartbeatCompleted(result)
 
-    case AppendLog(request) => sender() ! appendEntries(request)
   }
 }

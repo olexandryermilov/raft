@@ -15,7 +15,7 @@ trait RaftFollowerActor {
     logger.info(s"Node ${state.id} completed election with result $result")
     result match {
       case Left(term) => becomeFollower(Some(term._1), term._2)
-      case Right(votes) if votes > state.otherNodes.length / 2 && state.mode == Candidate => becomeLeader()
+      case Right(votes) if votes >= state.otherNodes.length / 2 && state.mode == Candidate => becomeLeader()
       case _ => ()
     }
   }
