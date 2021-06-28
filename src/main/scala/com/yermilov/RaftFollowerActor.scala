@@ -24,7 +24,7 @@ trait RaftFollowerActor {
     if (state.mode != Leader && (state.lastMessageFromLeader.isEmpty || DateTime.now().getMillis - state.lastMessageFromLeader.get.getMillis > this.electionTimer.toMillis)) {
       state.currentTerm += 1
       state.mode = Candidate
-      state.votedFor = Option(state.id)
+      state.votedFor = None
 
       logger.info(s"Node ${state.id} starts election, it's term is ${state.currentTerm}")
 

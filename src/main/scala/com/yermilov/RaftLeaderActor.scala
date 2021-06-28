@@ -11,9 +11,6 @@ import scala.util.{Failure, Success}
 trait RaftLeaderActor {
   this: RaftActor =>
 
-  def majorityMin(a: Array[Int]): Int =
-    a.sorted.drop(a.length / 2).head
-
   def heartbeat(): Any = {
     val calls = state.otherNodes.map {
       conn: Node =>
@@ -33,7 +30,7 @@ trait RaftLeaderActor {
         )).map {
           resp => {
             val nextIndexUpdate = if (entries.nonEmpty) {
-              if (resp.success) entries.last.index else nextIndex - 1
+              if (resp.success) entries.last.index + 1 else nextIndex - 1
             } else nextIndex
 
             if (resp.currentTerm > state.currentTerm) Left(resp.currentTerm, conn.id) else Right(conn.id -> nextIndexUpdate)
@@ -65,7 +62,7 @@ trait RaftLeaderActor {
       state.nextIndex = state.nextIndex ++ nextIndexes
       state.matchIndex = state.matchIndex ++ nextIndexes.filter {
         case (serverId: Int, index: Int) => index > state.matchIndex.getOrElse(serverId, 0) // increase only
-      }
+      }.map(x => x._1 -> (x._2 - 1))
       logger.info(s"Nextindex: ${state.nextIndex}, matchindex ${state.matchIndex} after update")
       val commitIndex = (state.commitIndex until state.log.length).findLast(cI => {
         if (state.log(cI).term == state.currentTerm) {
@@ -75,12 +72,6 @@ trait RaftLeaderActor {
       }).getOrElse(state.commitIndex)
       logger.info(s"New commit index is $commitIndex")
       state.commitIndex = commitIndex
-    /*val majorityIndex = majorityMin(state.matchIndex.values.toArray)
-    val candidateTerm = state.log.find(_.index == majorityIndex).map(_.term)
-    if (candidateTerm.contains(state.currentTerm) && majorityIndex > state.commitIndex) {
-      logger.info(s"Majority agreed with new commit $majorityIndex")
-      state.commitIndex = majorityIndex
-    }*/
   }
 
   def becomeLeader(): Unit = {

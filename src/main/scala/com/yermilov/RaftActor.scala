@@ -95,8 +95,7 @@ class RaftActor(val state: NodeState) extends Actor with Timers with RaftFollowe
       RequestVoteResponse(myOldTerm, voteGranted = false)
     } else {
       logger.info(state)
-      if ((state.votedFor.isEmpty || state.votedFor.contains(voteRequest.serverId)) && (voteRequest.lastLogTerm >= state.lastLogTerm
-        //|| (voteRequest.lastLogTerm == state.lastLogTerm && voteRequest.lastLogIndex >= state.lastLogIndex)
+      if ((state.votedFor.isEmpty || state.votedFor.contains(voteRequest.serverId)) && (voteRequest.lastLogTerm >= state.lastLogTerm || (voteRequest.lastLogTerm == state.lastLogTerm && voteRequest.lastLogIndex >= state.lastLogIndex)
         )) {
         RequestVoteResponse(state.currentTerm, voteGranted = true)
       } else {
@@ -117,7 +116,7 @@ class RaftActor(val state: NodeState) extends Actor with Timers with RaftFollowe
 
   def appendEntries(appendRequest: AppendEntriesRequest): AppendEntriesResponse = {
     val oldTerm = state.currentTerm
-    logger.info(s"Append entries request, current term is $oldTerm")
+    logger.info(s"Append entries request, current term is $oldTerm, insert")
     if (appendRequest.term > state.currentTerm) {
       becomeFollower(Some(appendRequest.term), appendRequest.leaderId)
     }
