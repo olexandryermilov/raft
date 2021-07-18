@@ -23,9 +23,9 @@ object RaftServer {
 
   def main(args: Array[String]): Unit = {
     println(args.mkString(" "))
-    port = 50000 + args.head.toInt
+    port = 9080 + args.head.toInt
     val server = new RaftServer(ExecutionContext.global)
-    server.start(id = args.head.toInt, otherPorts = Seq(50001, 50002, 50003, 50004, 50005).filter(_ != port))
+    server.start(id = args.head.toInt, otherPorts = Seq(9081, 9082, 9083).filter(_ != port))
     server.blockUntilShutdown()
   }
 
@@ -37,7 +37,7 @@ class RaftServer(executionContext: ExecutionContext) {
   private[this] var actor: ActorRef = null
 
   private def start(id: Int, otherPorts: Seq[Int]): Unit = {
-    val state = NodeState(id, otherNodes = otherPorts.map(port => Node(RaftClient.createStub(port), port - 50000)), Follower)
+    val state = NodeState(id, otherNodes = otherPorts.map(port => Node(RaftClient.createStub(port), port - 9080)), Follower)
     actor = RaftServer.actorSystem.actorOf(Props(classOf[RaftActor], state))
     println(actor.path)
     server = ServerBuilder.forPort(RaftServer.port).addService(RaftGrpc.bindService(new RaftService(actor), executionContext)).build.start

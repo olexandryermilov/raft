@@ -1,0 +1,41 @@
+version: '3.4'
+services:
+  node1:
+    build: ./
+    ports:
+      - "9081:9081"
+    environment:
+      - ID=1
+      - PORT=9081
+    #network_mode: "overlay"
+    expose:
+      - "9081"
+    #links:
+    #  - "node2"
+    #  - "node3"
+  node2:
+    #network_mode: "overlay"
+    build: ./
+    ports:
+      - "9082:9082"
+    environment:
+      - ID=2
+      - PORT=9082
+    expose:
+      - "9082"
+    #links:
+    #  - "node1"
+    #  - "node3"
+  node3:
+    #network_mode: "overlay"
+    build: ./
+    ports:
+      - "9083:9083"
+    environment:
+      - ID=3
+      - PORT=9083
+    expose:
+      - "9083"
+    #links:
+    #  - "node2"
+    #  - "node1"

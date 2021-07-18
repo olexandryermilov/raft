@@ -41,7 +41,7 @@ object RaftActorMessages {
 class RaftActor(val state: NodeState) extends Actor with Timers with RaftFollowerActor with RaftLeaderActor {
 
   val electionTimer = (scala.util.Random.nextInt(5000) + 5000).milliseconds
-  val heartBeatTimer = 500.milliseconds
+  val heartBeatTimer = 1500.milliseconds
 
   lazy val logger: Logger = initLogger
 
